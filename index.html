@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Cristal Royale 3D - Personaje Visible</title>
+    <title>Cristal Royale 3D</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { overflow: hidden; background: #000; font-family: Arial, sans-serif; touch-action: none; }
@@ -14,10 +14,9 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             color: white; z-index: 9999;
         }
-        #loading h1 { font-size: 24px; margin-bottom: 20px; color: #00d2ff; text-align: center; padding: 0 20px; }
+        #loading h1 { font-size: 24px; margin-bottom: 20px; color: #00d2ff; text-align: center; }
         .progress-bar { width: 80%; height: 10px; background: #333; border-radius: 5px; overflow: hidden; margin-top: 20px; }
         .progress-fill { height: 100%; background: linear-gradient(90deg, #00d2ff, #ff416c); width: 0%; transition: width 0.3s; }
-        #load-status { margin-top: 15px; font-size: 14px; color: #aaa; }
         
         #hud {
             position: fixed; top: 10px; left: 10px; right: 10px;
@@ -30,7 +29,7 @@
         #rango-text { color: #00d2ff; }
         
         #joystick-zone {
-            position: fixed; bottom: 80px; left: 30px;
+            position: fixed; bottom: 120px; left: 30px;
             width: 120px; height: 120px;
             background: rgba(255,255,255,0.15); border-radius: 50%;
             border: 2px solid rgba(255,255,255,0.4);
@@ -63,21 +62,13 @@
             border: none; border-radius: 25px; color: white; font-weight: bold;
             cursor: pointer; box-shadow: 0 4px 15px rgba(0,210,255,0.4);
         }
-        #start-btn:hover { transform: scale(1.05); }
-        
-        #info-3d {
-            position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.6); color: white; padding: 8px 15px;
-            border-radius: 15px; font-size: 12px; display: none; z-index: 100;
-        }
     </style>
 </head>
 <body>
 
     <div id="loading">
-        <h1>🪂 CRISTAL ROYALE<br><small style="font-size:14px; color:#aaa">Cargando modelos 3D...</small></h1>
+        <h1>🪂 CRISTAL ROYALE<br><small style="font-size:14px; color:#aaa">Cargando...</small></h1>
         <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
-        <div id="load-status">Iniciando...</div>
         <button id="start-btn" onclick="iniciarJuego()" style="display:none">SALTAR DEL AVIÓN</button>
     </div>
 
@@ -91,7 +82,6 @@
         <div class="action-btn" id="btn-build" ontouchstart="construir()" onclick="construir()">🧱</div>
         <div class="action-btn" id="btn-shoot" ontouchstart="disparar()" onclick="disparar()">🔫</div>
     </div>
-    <div id="info-3d">Arrastra derecha/izquierda para rotar cámara</div>
 
     <script type="importmap">
         {
@@ -111,72 +101,45 @@
         const rangos = ["CRISTAL", "BRONCE", "PLATA", "ORO", "DIAMANTE", "SUPREMO"];
         let moveVector = { x: 0, z: 0 };
         let loadedCount = 0;
-        const totalModels = 3;
+        const totalModels = 2; // Solo personaje y arma (sin árboles)
         let playerPos = new THREE.Vector3(0, 10, 0);
         let isPlaying = false;
         let cameraAngle = 0;
         let cameraDistance = 8;
 
-        // Inicializar escena
         function init() {
-            // Escena con niebla
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
-            scene.fog = new THREE.Fog(0x87CEEB, 15, 60);
+            scene.fog = new THREE.Fog(0x87CEEB, 20, 70);
 
-            // Cámara en tercera persona
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
             updateCamera();
 
-            // Renderer optimizado
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.shadowMap.enabled = true;
-            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-            renderer.outputColorSpace = THREE.SRGBColorSpace;
             document.body.appendChild(renderer.domElement);
 
-            // Luces mejoradas
+            // Luces
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
             scene.add(ambientLight);
             
             const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
             dirLight.position.set(10, 15, 10);
             dirLight.castShadow = true;
-            dirLight.shadow.camera.left = -20;
-            dirLight.shadow.camera.right = 20;
-            dirLight.shadow.camera.top = 20;
-            dirLight.shadow.camera.bottom = -20;
-            dirLight.shadow.mapSize.width = 2048;
-            dirLight.shadow.mapSize.height = 2048;
             scene.add(dirLight);
 
-            // Luz adicional para que se vean mejor los modelos
-            const fillLight = new THREE.DirectionalLight(0x9999ff, 0.4);
-            fillLight.position.set(-5, 5, -5);
-            scene.add(fillLight);
-
-            // Suelo con textura procedural
-            const groundGeometry = new THREE.PlaneGeometry(100, 100);
-            const groundMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x3a7e46,
-                roughness: 0.8,
-                metalness: 0.1
-            });
-            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            // Suelo
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(100, 100),
+                new THREE.MeshStandardMaterial({ color: 0x3a7e46, roughness: 0.8 })
+            );
             ground.rotation.x = -Math.PI / 2;
             ground.receiveShadow = true;
-            ground.name = "suelo";
             scene.add(ground);
 
-            // Grid helper para referencia visual
-            const gridHelper = new THREE.GridHelper(100, 50, 0x000000, 0x000000);
-            gridHelper.material.opacity = 0.1;
-            gridHelper.material.transparent = true;
-            scene.add(gridHelper);
-
-            // Cargar modelos
+            // SIN ÁRBOLES - Solo mapa limpio
             cargarModelos();
         }
 
@@ -193,13 +156,10 @@
             loadedCount++;
             const percent = (loadedCount / totalModels) * 100;
             document.getElementById('progress').style.width = percent + '%';
-            if (status) document.getElementById('load-status').textContent = status;
             
             if (loadedCount === totalModels) {
                 setTimeout(() => {
                     document.getElementById('start-btn').style.display = 'block';
-                    document.querySelector('#loading h1 small').textContent = '¡Todo listo!';
-                    document.getElementById('load-status').textContent = 'Presiona para jugar';
                 }, 500);
             }
         }
@@ -207,60 +167,44 @@
         function cargarModelos() {
             const loader = new GLTFLoader();
 
-            // 1. PERSONAJE - Con visibilidad garantizada
-            document.getElementById('load-status').textContent = 'Cargando personaje...';
+            // 1. PERSONAJE
             loader.load(
                 'freefire_new_male_3d_model_by....glb', // ⚠️ CAMBIA POR EL NOMBRE COMPLETO
                 (gltf) => {
                     playerModel = gltf.scene;
-                    
-                    // Ajustar escala para que sea visible
                     playerModel.scale.set(1, 1, 1);
                     playerModel.position.copy(playerPos);
                     
-                    // Asegurar que todos los meshes sean visibles
                     playerModel.traverse((child) => {
                         if (child.isMesh) {
                             child.castShadow = true;
                             child.receiveShadow = true;
-                            child.frustumCulled = false; // Siempre visible
-                            if (child.material) {
-                                child.material.needsUpdate = true;
-                            }
+                            child.frustumCulled = false;
                         }
                     });
                     
                     scene.add(playerModel);
-                    console.log('✅ Personaje cargado:', playerModel);
-                    updateProgress('Personaje cargado');
                     
-                    // Una vez cargado el personaje, attaching el arma
-                    if (armaModel) {
-                        attachWeapon();
-                    }
+                    if (armaModel) attachWeapon();
+                    updateProgress();
                 },
-                (xhr) => {
-                    const percent = (xhr.loaded / xhr.total * 100).toFixed(0);
-                    document.getElementById('load-status').textContent = `Personaje: ${percent}%`;
-                },
+                undefined,
                 (error) => {
-                    console.error('❌ Error cargando personaje:', error);
-                    // Crear personaje temporal VISIBLE
+                    console.error('Error cargando personaje:', error);
+                    // Personaje temporal
                     const tempPlayer = new THREE.Group();
                     
-                    // Cuerpo
                     const body = new THREE.Mesh(
                         new THREE.BoxGeometry(0.8, 1.2, 0.4),
-                        new THREE.MeshStandardMaterial({ color: 0x0066cc, roughness: 0.5 })
+                        new THREE.MeshStandardMaterial({ color: 0x0066cc })
                     );
                     body.position.y = 1.6;
                     body.castShadow = true;
                     tempPlayer.add(body);
                     
-                    // Cabeza
                     const head = new THREE.Mesh(
                         new THREE.SphereGeometry(0.35, 16, 16),
-                        new THREE.MeshStandardMaterial({ color: 0xffccaa, roughness: 0.5 })
+                        new THREE.MeshStandardMaterial({ color: 0xffccaa })
                     );
                     head.position.y = 2.5;
                     head.castShadow = true;
@@ -269,22 +213,17 @@
                     tempPlayer.position.copy(playerPos);
                     scene.add(tempPlayer);
                     playerModel = tempPlayer;
-                    console.log('⚠️ Usando personaje temporal');
-                    updateProgress('Personaje (temporal)');
+                    updateProgress();
                 }
             );
 
-            // 2. ARMA - Visible y posicionada correctamente
-            document.getElementById('load-status').textContent = 'Cargando arma...';
+            // 2. ARMA
             loader.load(
                 'pistola_9mm.glb',
                 (gltf) => {
                     armaModel = gltf.scene;
-                    
-                    // Escalar arma para que sea proporcional
                     armaModel.scale.set(0.5, 0.5, 0.5);
                     
-                    // Hacer visible
                     armaModel.traverse((child) => {
                         if (child.isMesh) {
                             child.castShadow = true;
@@ -292,146 +231,63 @@
                         }
                     });
                     
-                    // Si el personaje ya está cargado, attach el arma
-                    if (playerModel) {
-                        attachWeapon();
-                    }
-                    
-                    updateProgress('Arma cargada');
+                    if (playerModel) attachWeapon();
+                    updateProgress();
                 },
                 undefined,
                 (error) => {
-                    console.error('❌ Error cargando arma:', error);
-                    // Crear arma temporal visible
+                    console.error('Error cargando arma:', error);
                     armaModel = new THREE.Mesh(
                         new THREE.BoxGeometry(0.1, 0.15, 0.4),
-                        new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.2 })
+                        new THREE.MeshStandardMaterial({ color: 0x333333 })
                     );
                     if (playerModel) attachWeapon();
-                    updateProgress('Arma (temporal)');
+                    updateProgress();
                 }
             );
-
-            // 3. ÁRBOL / ENTORNO
-            document.getElementById('load-status').textContent = 'Cargando entorno...';
-            loader.load(
-                'arbol_descarga.glb',
-                (gltf) => {
-                    const arbol = gltf.scene;
-                    arbol.scale.set(0.8, 0.8, 0.8);
-                    arbol.position.set(-8, 0, -12);
-                    
-                    arbol.traverse((child) => {
-                        if (child.isMesh) {
-                            child.castShadow = true;
-                            child.receiveShadow = true;
-                        }
-                    });
-                    
-                    scene.add(arbol);
-                    
-                    // Clonar en más posiciones
-                    for (let i = 0; i < 3; i++) {
-                        const clone = arbol.clone();
-                        clone.position.set(
-                            (Math.random() - 0.5) * 40,
-                            0,
-                            (Math.random() - 0.5) * 40 - 10
-                        );
-                        scene.add(clone);
-                    }
-                    
-                    updateProgress('Entorno cargado');
-                },
-                undefined,
-                (error) => {
-                    console.error('❌ Error cargando árbol:', error);
-                    // Crear árboles simples visibles
-                    for (let i = 0; i < 5; i++) {
-                        const trunk = new THREE.Mesh(
-                            new THREE.CylinderGeometry(0.2, 0.3, 2, 8),
-                            new THREE.MeshStandardMaterial({ color: 0x8B4513 })
-                        );
-                        trunk.position.set(
-                            (Math.random() - 0.5) * 40,
-                            1,
-                            (Math.random() - 0.5) * 40 - 10
-                        );
-                        trunk.castShadow = true;
-                        scene.add(trunk);
-                        
-                        const leaves = new THREE.Mesh(
-                            new THREE.ConeGeometry(2, 4, 8),
-                            new THREE.MeshStandardMaterial({ color: 0x228B22 })
-                        );
-                        leaves.position.set(trunk.position.x, 3, trunk.position.z);
-                        leaves.castShadow = true;
-                        scene.add(leaves);
-                    }
-                    updateProgress('Entorno (temporal)');
-                }
-            );
-
-            animate();
         }
 
         function attachWeapon() {
             if (!playerModel || !armaModel) return;
-            
-            // Posicionar arma en la mano del personaje
             armaModel.position.set(0.4, 1.5, -0.3);
-            armaModel.rotation.set(0, 0, 0);
             playerModel.add(armaModel);
-            console.log('✅ Arma attachada al personaje');
         }
 
         function animate() {
             requestAnimationFrame(animate);
             
             if (isPlaying && playerModel) {
-                // Movimiento del personaje
                 const speed = 0.15;
                 playerModel.position.x += moveVector.x * speed;
                 playerModel.position.z += moveVector.z * speed;
                 
-                // Rotar personaje hacia la dirección del movimiento
                 if (moveVector.x !== 0 || moveVector.z !== 0) {
                     const angle = Math.atan2(moveVector.x, moveVector.z);
                     playerModel.rotation.y = angle;
                 }
                 
-                // Limitar al mapa
                 playerModel.position.x = Math.max(-48, Math.min(48, playerModel.position.x));
                 playerModel.position.z = Math.max(-48, Math.min(48, playerModel.position.z));
                 
-                // Actualizar cámara
                 updateCamera();
             }
             
             renderer.render(scene, camera);
         }
 
-        // Funciones globales
         window.iniciarJuego = function() {
             document.getElementById('loading').style.display = 'none';
             document.getElementById('hud').style.display = 'flex';
             document.getElementById('joystick-zone').style.display = 'block';
             document.getElementById('action-buttons').style.display = 'flex';
-            document.getElementById('info-3d').style.display = 'block';
             isPlaying = true;
             
-            // Animación de caída
             if (playerModel) {
                 const dropInterval = setInterval(() => {
                     playerModel.position.y -= 0.3;
                     if (playerModel.position.y <= 1) {
                         playerModel.position.y = 1;
                         clearInterval(dropInterval);
-                        
-                        // Notificar escudo
-                        setTimeout(() => {
-                            console.log('🛡️ Escudo desactivado');
-                        }, 10000);
                     }
                 }, 30);
             }
@@ -443,7 +299,6 @@
         window.disparar = function() {
             if (!isPlaying || !playerModel) return;
             
-            // Crear bala visible
             const bala = new THREE.Mesh(
                 new THREE.SphereGeometry(0.15, 8, 8),
                 new THREE.MeshBasicMaterial({ color: 0xffff00 })
@@ -451,14 +306,12 @@
             bala.position.copy(playerModel.position);
             bala.position.y += 1.5;
             
-            // Dirección del disparo
             const direction = new THREE.Vector3(0, 0, -1);
             direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), playerModel.rotation.y);
             bala.position.add(direction.multiplyScalar(1));
             
             scene.add(bala);
             
-            // Animar bala
             let distance = 0;
             const shootInterval = setInterval(() => {
                 bala.position.add(direction.normalize().multiplyScalar(1));
@@ -479,10 +332,7 @@
             
             const pared = new THREE.Mesh(
                 new THREE.BoxGeometry(3, 3, 0.2),
-                new THREE.MeshStandardMaterial({ 
-                    color: 0xD2691E,
-                    roughness: 0.9
-                })
+                new THREE.MeshStandardMaterial({ color: 0xD2691E })
             );
             const direction = new THREE.Vector3(0, 0, -1);
             direction.applyAxisAngle(new THREE.Vector3(0, 1, 0), playerModel.rotation.y);
@@ -495,9 +345,7 @@
             
             scene.add(pared);
             
-            setTimeout(() => { 
-                scene.remove(pared); 
-            }, 15000);
+            setTimeout(() => { scene.remove(pared); }, 15000);
         };
 
         function verificarRango() {
@@ -511,11 +359,6 @@
             if (nuevoRango > rango) {
                 rango = nuevoRango;
                 document.getElementById('rango-text').textContent = rangos[rango];
-                // Efecto visual
-                document.getElementById('rango-text').style.color = '#FFD700';
-                setTimeout(() => {
-                    document.getElementById('rango-text').style.color = '#00d2ff';
-                }, 1000);
             }
         }
 
@@ -526,7 +369,6 @@
             
             zone.addEventListener('touchstart', (e) => {
                 e.preventDefault();
-                const touch = e.touches[0];
                 const rect = zone.getBoundingClientRect();
                 startX = rect.left + rect.width / 2;
                 startY = rect.top + rect.height / 2;
@@ -581,8 +423,6 @@
             }
         });
 
-        // Iniciar
-        console.log('🎮 Iniciando Cristal Royale 3D...');
         init();
     </script>
 </body>
