@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cristal Royale 3D</title>
+    <!-- Cargamos el motor 3D A-Frame -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <style>
+        /* Botón de disparo flotante para celular */
+        #btn-disparar {
+            position: fixed;
+            bottom: 50px;
+            right: 50px;
+            width: 80px;
+            height: 80px;
+            background: red;
+            border-radius: 50%;
+            border: 3px solid white;
+            z-index: 999;
+            opacity: 0.7;
+        }
+        #info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial;
+            font-size: 20px;
+            z-index: 999;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="info">Rango: CRISTAL | XP: 0</div>
+    <div id="btn-disparar" onclick="disparar()"></div>
+
+    <!-- Escena 3D -->
+    <a-scene>
+        <!-- Cielo y ambiente -->
+        <a-sky color="#87CEEB"></a-sky>
+        <a-light type="ambient" color="#BBB"></a-light>
+        <a-light type="directional" position="1 2 1" intensity="0.6"></a-light>
+
+        <!-- Suelo (El Mapa) -->
+        <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#4CC3D9"></a-plane>
+
+        <!-- Casas / Refugios (Botín) -->
+        <a-box position="-5 1.5 -10" width="4" height="3" depth="4" color="#8B4513"></a-box>
+        <a-box position="8 1.5 -8" width="4" height="3" depth="4" color="#8B4513"></a-box>
+
+        <!-- El Avión (Simulado arriba) -->
+        <a-box id="avion" position="0 15 -20" width="6" height="1" depth="2" color="#555" animation="property: position; to: 0 15 20; dur: 10000; loop: true"></a-box>
+
+        <!-- Jugador (Cámara en primera persona) -->
+        <a-entity id="jugador" position="0 1.6 0" look-controls>
+            <!-- Escudo Invisible (Paredes temporales) -->
+            <a-sphere id="escudo" radius="1.2" color="cyan" opacity="0.3" visible="true"></a-sphere>
+            <!-- Arma (Un simple bloque) -->
+            <a-box position="0.2 -0.3 -0.5" width="0.1" height="0.1" depth="0.4" color="#333"></a-box>
+        </a-entity>
+
+    </a-scene>
+
+    <script>
+        // Lógica del juego
+        let xp = 0;
+        let rango = "CRISTAL";
+        
+        // 1. Mecánica del Escudo Invisible (Dura 10 segundos al inicio)
+        setTimeout(() => {
+            document.getElementById('escudo').setAttribute('visible', 'false');
+            console.log("¡Escudo caído!");
+        }, 10000);
+
+        // 2. Mecánica de Disparo
+        function disparar() {
+            const escena = document.querySelector('a-scene');
+            const jugador = document.getElementById('jugador');
+            
+            // Crear bala
+            const bala = document.createElement('a-sphere');
+            bala.setAttribute('color', 'yellow');
+            bala.setAttribute('radius', '0.1');
+            
+            // Posición inicial de la bala (frente al jugador)
+            const posicion = jugador.getAttribute('position');
+            // Nota: En un juego real, aquí calcularíamos la rotación de la cámara para la dirección
+            bala.setAttribute('position', {x: posicion.x, y: posicion.y, z: posicion.z - 1});
+            
+            // Animación de la bala moviéndose hacia adelante
+            bala.setAttribute('animation', 'property: position; to: ' + posicion.x + ' ' + posicion.y + ' ' + (posicion.z - 20) + '; dur: 500');
+            
+            escena.appendChild(bala);
+
+            // Eliminar la bala después de 0.5 segundos para no saturar el celular
+            setTimeout(() => {
+                bala.remove();
+                // Simular que le dimos a un enemigo
+                xp += 50;
+                document.getElementById('info').innerText = "Rango: " + rango + " | XP: " + xp;
+            }, 500);
+        }
+    </script>
+</body>
+</html>
