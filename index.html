@@ -1,257 +1,393 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cristal Royale: FF x Fortnite</title>
-    <!-- Motor 3D A-Frame -->
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <!-- Joystick virtual para celular -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cristal Royale 3D</title>
     <style>
-        body { margin: 0; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: #000; font-family: Arial, sans-serif; touch-action: none; }
         
-        /* Interfaz Vertical */
-        #ui-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 999; }
+        #loading {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: white; z-index: 9999;
+        }
+        #loading h1 { font-size: 28px; margin-bottom: 20px; color: #00d2ff; text-align: center; }
+        .progress-bar { width: 80%; height: 10px; background: #333; border-radius: 5px; overflow: hidden; margin-top: 20px; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #00d2ff, #ff416c); width: 0%; transition: width 0.3s; }
         
-        /* Panel de Rango y Vida */
-        #hud-top { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: auto; }
-        .hud-box { background: rgba(0,0,0,0.6); color: white; padding: 8px 15px; border-radius: 20px; border: 2px solid #00d2ff; font-weight: bold; font-size: 14px; }
+        #hud {
+            position: fixed; top: 10px; left: 10px; right: 10px;
+            display: none; justify-content: space-between; pointer-events: none; z-index: 100;
+        }
+        .hud-box {
+            background: rgba(0,0,0,0.7); color: white; padding: 10px 15px;
+            border-radius: 10px; border: 2px solid #00d2ff; font-weight: bold; font-size: 14px;
+        }
         #rango-text { color: #00d2ff; }
         
-        /* Zona del Joystick (Mitad izquierda) */
-        #zone-joystick { position: absolute; bottom: 50px; left: 20px; width: 150px; height: 150px; pointer-events: auto; }
+        #joystick-zone {
+            position: fixed; bottom: 80px; left: 30px;
+            width: 120px; height: 120px;
+            background: rgba(255,255,255,0.2); border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.5);
+            display: none; pointer-events: auto; z-index: 100;
+        }
+        #joystick-knob {
+            width: 50px; height: 50px; background: rgba(255,255,255,0.8);
+            border-radius: 50%; position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+        }
         
-        /* Botones de Acción (Mitad derecha) */
-        #zone-actions { position: absolute; bottom: 40px; right: 20px; display: flex; flex-direction: column; gap: 15px; pointer-events: auto; }
-        .btn-action { width: 70px; height: 70px; border-radius: 50%; border: 3px solid white; font-weight: bold; color: white; font-size: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); active: scale(0.9); }
+        #action-buttons {
+            position: fixed; bottom: 40px; right: 30px;
+            display: none; flex-direction: column; gap: 15px;
+            pointer-events: auto; z-index: 100;
+        }
+        .action-btn {
+            width: 70px; height: 70px; border-radius: 50%; border: 3px solid white;
+            font-weight: bold; color: white; font-size: 12px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
         #btn-shoot { background: linear-gradient(135deg, #ff416c, #ff4b2b); }
         #btn-build { background: linear-gradient(135deg, #f7971e, #ffd200); color: black; }
         
-        /* Mensaje de inicio */
-        #start-msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 10px; text-align: center; pointer-events: auto; z-index: 1000; }
-        #start-btn { background: #00d2ff; border: none; padding: 10px 20px; color: black; font-weight: bold; border-radius: 5px; margin-top: 10px; cursor: pointer; }
+        #start-btn {
+            margin-top: 30px; padding: 15px 40px; font-size: 18px;
+            background: linear-gradient(135deg, #00d2ff, #3a7bd5);
+            border: none; border-radius: 25px; color: white; font-weight: bold;
+            cursor: pointer; box-shadow: 0 4px 15px rgba(0,210,255,0.4);
+        }
     </style>
 </head>
 <body>
 
-    <!-- Interfaz de Usuario (UI) -->
-    <div id="ui-layer">
-        <div id="hud-top">
-            <div class="hud-box">🏆 Rango: <span id="rango-text">CRISTAL</span></div>
-            <div class="hud-box">⭐ XP: <span id="xp-text">0</span></div>
-        </div>
-        <div id="zone-joystick"></div>
-        <div id="zone-actions">
-            <div id="btn-build" class="btn-action" ontouchstart="construir()" onclick="construir()">🧱<br>CONSTRUIR</div>
-            <div id="btn-shoot" class="btn-action" ontouchstart="disparar()" onclick="disparar()">🔫<br>DISPARAR</div>
-        </div>
+    <div id="loading">
+        <h1>🪂 CRISTAL ROYALE<br><small style="font-size:16px">Cargando modelos 3D...</small></h1>
+        <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+        <button id="start-btn" onclick="iniciarJuego()" style="display:none">SALTAR DEL AVIÓN</button>
     </div>
 
-    <div id="start-msg">
-        <h2>🪂 CRISTAL ROYALE</h2>
-        <p>Usa el joystick izquierdo para moverte.<br>Arrastra el lado derecho para mirar.<br>¡Sobrevive y sube de rango!</p>
-        <button id="start-btn" onclick="iniciarJuego()">SALTAR DEL AVIÓN</button>
+    <div id="hud">
+        <div class="hud-box">🏆 <span id="rango-text">CRISTAL</span></div>
+        <div class="hud-box">⭐ XP: <span id="xp-text">0</span></div>
     </div>
 
-    <!-- Escena 3D -->
-    <a-scene shadow="type: pcf" renderer="colorManagement: true; physicallyCorrectLights: true;" background="color: #87CEEB">
-        
-        <!-- Iluminación estilo Fortnite/Free Fire -->
-        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
-        <a-light type="directional" position="10 20 10" intensity="1.2" cast-shadow="true" shadow-camera-top="20" shadow-camera-bottom="-20" shadow-camera-left="-20" shadow-camera-right="20"></a-light>
+    <div id="joystick-zone"><div id="joystick-knob"></div></div>
+    <div id="action-buttons">
+        <div class="action-btn" id="btn-build" ontouchstart="construir()">🧱</div>
+        <div class="action-btn" id="btn-shoot" ontouchstart="disparar()">🔫</div>
+    </div>
 
-        <!-- Cielo -->
-        <a-sky color="#87CEEB"></a-sky>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
 
-        <!-- Suelo (Mapa) -->
-        <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#4a6fa5" shadow="receive: true"></a-plane>
-        <a-grid helper visible="false"></a-grid> <!-- Decorativo -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        <!-- Entorno: Casas y Coberturas -->
-        <a-box position="-10 2 -15" width="6" height="4" depth="6" color="#8B4513" shadow="cast: true" class="cover"></a-box>
-        <a-box position="12 1.5 -10" width="4" height="3" depth="4" color="#A0522D" shadow="cast: true" class="cover"></a-box>
-        <a-cylinder position="0 1 -25" radius="2" height="2" color="#556B2F" shadow="cast: true"></a-cylinder>
-
-        <!-- Botín (Cajas brillantes) -->
-        <a-box position="5 0.5 -5" width="1" height="1" depth="1" color="#FFD700" shadow="cast: true" animation="property: rotation; to: 0 360 0; dur: 3000; loop: true" class="loot" data-type="arma"></a-box>
-        <a-box position="-8 0.5 -8" width="1" height="1" depth="1" color="#00FF00" shadow="cast: true" animation="property: rotation; to: 0 360 0; dur: 3000; loop: true" class="loot" data-type="vida"></a-box>
-
-        <!-- Enemigos (Bots simulados como cajas rojas) -->
-        <a-box id="enemy1" position="8 1 -15" width="1.5" height="2" depth="1.5" color="#ff3333" shadow="cast: true" class="enemy"></a-box>
-        <a-box id="enemy2" position="-12 1 -20" width="1.5" height="2" depth="1.5" color="#ff3333" shadow="cast: true" class="enemy"></a-box>
-
-        <!-- Jugador (Cámara en Primera Persona) -->
-        <a-entity id="player" position="0 10 0" look-controls="touchEnabled: true">
-            <!-- Escudo Invisible (Glow azul) -->
-            <a-sphere id="shield" radius="1.5" color="#00d2ff" opacity="0.3" shadow="cast: true" animation="property: scale; to: 1.1 1.1 1.1; dir: alternate; dur: 1000; loop: true"></a-sphere>
-            
-            <!-- Arma del jugador -->
-            <a-box position="0.3 -0.3 -0.5" width="0.15" height="0.15" depth="0.6" color="#333333"></a-box>
-        </a-entity>
-
-    </a-scene>
-
-    <script>
-        // --- VARIABLES DEL JUEGO ---
-        let xp = 0;
-        let rango = 0; // 0: Cristal, 1: Bronce, 2: Plata, 3: Oro, 4: Diamante, 5: Supremo
-        const rangosNombres = ["CRISTAL", "BRONCE", "PLATA", "ORO", "DIAMANTE", "SUPREMO"];
-        let playerEntity = document.getElementById('player');
-        let shield = document.getElementById('shield');
-        let scene = document.querySelector('a-scene');
+        let scene, camera, renderer, playerModel, armaModel;
+        let xp = 0, rango = 0;
+        const rangos = ["CRISTAL", "BRONCE", "PLATA", "ORO", "DIAMANTE", "SUPREMO"];
         let moveVector = { x: 0, z: 0 };
+        let loadedCount = 0;
+        const totalModels = 3;
+        let playerPos = new THREE.Vector3(0, 10, 0);
         let isPlaying = false;
 
-        // --- 1. INICIO Y CAÍDA DEL AVIÓN ---
-        function iniciarJuego() {
-            document.getElementById('start-msg').style.display = 'none';
+        // Inicializar escena
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 10, 50);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 12, 5);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // Luces
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+            dirLight.position.set(5, 10, 7);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            // Suelo
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(100, 100),
+                new THREE.MeshStandardMaterial({ color: 0x3a7e46 })
+            );
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Cargar modelos
+            cargarModelos();
+        }
+
+        function updateProgress() {
+            loadedCount++;
+            const percent = (loadedCount / totalModels) * 100;
+            document.getElementById('progress').style.width = percent + '%';
+            
+            if (loadedCount === totalModels) {
+                setTimeout(() => {
+                    document.getElementById('start-btn').style.display = 'block';
+                    document.querySelector('#loading h1 small').textContent = '¡Listo para jugar!';
+                }, 500);
+            }
+        }
+
+        function cargarModelos() {
+            const loader = new GLTFLoader();
+
+            // 1. PERSONAJE (REEMPLAZA EL NOMBRE)
+            loader.load(
+                'freefire_new_male_3d_model_by....glb', // ⚠️ CAMBIA ESTO POR EL NOMBRE COMPLETO
+                (gltf) => {
+                    playerModel = gltf.scene;
+                    playerModel.scale.set(0.5, 0.5, 0.5);
+                    playerModel.position.copy(playerPos);
+                    playerModel.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    scene.add(playerModel);
+                    updateProgress();
+                },
+                undefined,
+                (error) => {
+                    console.error('Error cargando personaje:', error);
+                    // Crear cubo temporal si falla
+                    const tempPlayer = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshStandardMaterial({color: 0x00ff00}));
+                    tempPlayer.position.copy(playerPos);
+                    scene.add(tempPlayer);
+                    playerModel = tempPlayer;
+                    updateProgress();
+                }
+            );
+
+            // 2. ARMA
+            loader.load(
+                'pistola_9mm.glb',
+                (gltf) => {
+                    armaModel = gltf.scene;
+                    armaModel.scale.set(0.3, 0.3, 0.3);
+                    if (playerModel) {
+                        armaModel.position.set(0.3, 1, -0.3);
+                        playerModel.add(armaModel);
+                    }
+                    updateProgress();
+                },
+                undefined,
+                (error) => {
+                    console.error('Error cargando arma:', error);
+                    updateProgress();
+                }
+            );
+
+            // 3. ÁRBOL (Optimizado - solo cargamos 1)
+            loader.load(
+                'arbol_descarga.glb',
+                (gltf) => {
+                    const arbol = gltf.scene;
+                    arbol.scale.set(0.5, 0.5, 0.5);
+                    arbol.position.set(-5, 0, -10);
+                    arbol.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    scene.add(arbol);
+                    
+                    // Clonar árbol en otras posiciones
+                    const arbol2 = arbol.clone();
+                    arbol2.position.set(8, 0, -15);
+                    scene.add(arbol2);
+                    
+                    updateProgress();
+                },
+                undefined,
+                (error) => {
+                    console.error('Error cargando árbol:', error);
+                    // Crear árbol simple si falla
+                    const tempTree = new THREE.Mesh(
+                        new THREE.ConeGeometry(1, 4, 8),
+                        new THREE.MeshStandardMaterial({color: 0x228B22})
+                    );
+                    tempTree.position.set(-5, 2, -10);
+                    scene.add(tempTree);
+                    updateProgress();
+                }
+            );
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (isPlaying && playerModel) {
+                // Movimiento
+                playerModel.position.x += moveVector.x * 0.1;
+                playerModel.position.z += moveVector.z * 0.1;
+                
+                // Cámara sigue al jugador
+                camera.position.x = playerModel.position.x;
+                camera.position.z = playerModel.position.z + 5;
+                camera.position.y = Math.max(camera.position.y, playerModel.position.y + 3);
+                camera.lookAt(playerModel.position);
+            }
+            
+            renderer.render(scene, camera);
+        }
+
+        // Funciones globales para los botones
+        window.iniciarJuego = function() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('hud').style.display = 'flex';
+            document.getElementById('joystick-zone').style.display = 'block';
+            document.getElementById('action-buttons').style.display = 'flex';
             isPlaying = true;
             
-            // Animación de caída (la cámara baja de Y=10 a Y=1.6 en 3 segundos)
-            playerEntity.setAttribute('animation', 'property: position; to: 0 1.6 0; dur: 3000; easing: easeOutQuad');
-            
-            // El escudo dura 10 segundos y luego desaparece
-            setTimeout(() => {
-                shield.setAttribute('visible', 'false');
-                console.log("¡Escudo caído!");
-            }, 10000);
-
-            // Iniciar Joystick
-            iniciarJoystick();
-        }
-
-        // --- 2. JOYSTICK VIRTUAL (Movimiento) ---
-        function iniciarJoystick() {
-            const joystickManager = nipplejs.create({
-                zone: document.getElementById('zone-joystick'),
-                mode: 'static',
-                position: { left: '50%', top: '50%' },
-                color: 'white'
-            });
-
-            joystickManager.on('move', function (evt, data) {
-                if (data && data.vector) {
-                    moveVector.x = data.vector.x;
-                    moveVector.z = -data.vector.y; // Invertir Y para que arriba sea adelante
-                }
-            });
-
-            joystickManager.on('end', function () {
-                moveVector.x = 0;
-                moveVector.z = 0;
-            });
-        }
-
-        // Loop de movimiento (60 FPS)
-        setInterval(() => {
-            if (!isPlaying) return;
-            if (moveVector.x !== 0 || moveVector.z !== 0) {
-                let currentPos = playerEntity.getAttribute('position');
-                // Mover en la dirección que mira la cámara (simplificado para web)
-                let speed = 0.15;
-                playerEntity.setAttribute('position', {
-                    x: currentPos.x + (moveVector.x * speed),
-                    y: currentPos.y,
-                    z: currentPos.z + (moveVector.z * speed)
-                });
+            // Caída del avión
+            if (playerModel) {
+                const startPos = playerModel.position.y;
+                const dropInterval = setInterval(() => {
+                    playerModel.position.y -= 0.5;
+                    if (playerModel.position.y <= 1.6) {
+                        playerModel.position.y = 1.6;
+                        clearInterval(dropInterval);
+                        // Escudo desaparece después de 10 segundos
+                        setTimeout(() => {
+                            console.log('¡Escudo caído!');
+                        }, 10000);
+                    }
+                }, 50);
             }
-        }, 16);
-
-        // --- 3. SISTEMA DE DISPARO ---
-        function disparar() {
-            if (!isPlaying) return;
             
-            // Crear bala
-            let bala = document.createElement('a-sphere');
-            bala.setAttribute('radius', '0.1');
-            bala.setAttribute('color', '#ffff00');
-            bala.setAttribute('shadow', 'cast: true');
-            
-            let pos = playerEntity.getAttribute('position');
-            bala.setAttribute('position', { x: pos.x, y: pos.y, z: pos.z - 0.5 });
-            
-            // Animación de disparo hacia adelante
-            bala.setAttribute('animation', `property: position; to: ${pos.x} ${pos.y} ${pos.z - 30}; dur: 300`);
-            scene.appendChild(bala);
+            initJoystick();
+        };
 
-            // Detección de impacto (simplificada: si toca un enemigo, lo destruye)
-            setTimeout(() => {
-                bala.remove();
-                verificarImpacto(pos.z - 15); // Zona de impacto aproximada
-            }, 300);
-        }
-
-        function verificarImpacto(zonaZ) {
-            let enemigos = document.querySelectorAll('.enemy');
-            enemigos.forEach(enemigo => {
-                let ez = enemigo.getAttribute('position').z;
-                if (Math.abs(ez - zonaZ) < 5) { // Si está cerca
-                    enemigo.parentNode.removeChild(enemigo); // Eliminar enemigo
-                    sumarXP(100);
+        window.disparar = function() {
+            if (!isPlaying || !playerModel) return;
+            
+            const bala = new THREE.Mesh(
+                new THREE.SphereGeometry(0.1, 8, 8),
+                new THREE.MeshBasicMaterial({ color: 0xffff00 })
+            );
+            bala.position.copy(playerModel.position);
+            bala.position.y += 1;
+            bala.position.z -= 1;
+            scene.add(bala);
+            
+            // Animación de bala
+            let balaZ = bala.position.z;
+            const shootInterval = setInterval(() => {
+                bala.position.z -= 0.5;
+                if (bala.position.z < balaZ - 20 || Math.abs(bala.position.x - playerModel.position.x) > 10) {
+                    scene.remove(bala);
+                    clearInterval(shootInterval);
+                    // Simular impacto
+                    xp += 10;
+                    document.getElementById('xp-text').textContent = xp;
+                    verificarRango();
                 }
-            });
-        }
+            }, 30);
+        };
 
-        // --- 4. SISTEMA DE CONSTRUCCIÓN (Fortnite) ---
-        function construir() {
-            if (!isPlaying) return;
-            let pos = playerEntity.getAttribute('position');
+        window.construir = function() {
+            if (!isPlaying || !playerModel) return;
             
-            let pared = document.createElement('a-box');
-            pared.setAttribute('position', { x: pos.x, y: pos.y, z: pos.z - 2 });
-            pared.setAttribute('width', '3');
-            pared.setAttribute('height', '3');
-            pared.setAttribute('depth', '0.2');
-            pared.setAttribute('color', '#D2691E'); // Color madera
-            pared.setAttribute('shadow', 'cast: true');
+            const pared = new THREE.Mesh(
+                new THREE.BoxGeometry(3, 3, 0.2),
+                new THREE.MeshStandardMaterial({ color: 0xD2691E })
+            );
+            pared.position.set(playerModel.position.x, playerModel.position.y + 1.5, playerModel.position.z - 2);
+            pared.castShadow = true;
+            scene.add(pared);
             
-            scene.appendChild(pared);
-            
-            // La pared desaparece después de 15 segundos para no saturar el celular
-            setTimeout(() => { pared.remove(); }, 15000);
-        }
+            setTimeout(() => { scene.remove(pared); }, 15000);
+        };
 
-        // --- 5. SISTEMA DE RANGOS Y BOTÍN ---
-        function sumarXP(cantidad) {
-            xp += cantidad;
-            document.getElementById('xp-text').innerText = xp;
-            
-            // Lógica de subida de rango
+        function verificarRango() {
             let nuevoRango = 0;
             if (xp >= 100) nuevoRango = 1;
             if (xp >= 250) nuevoRango = 2;
             if (xp >= 500) nuevoRango = 3;
             if (xp >= 1000) nuevoRango = 4;
             if (xp >= 2500) nuevoRango = 5;
-
+            
             if (nuevoRango > rango) {
                 rango = nuevoRango;
-                document.getElementById('rango-text').innerText = rangosNombres[rango];
-                // Efecto visual de subida de rango
-                document.getElementById('rango-text').style.color = "#FFD700";
-                setTimeout(() => { document.getElementById('rango-text').style.color = "#00d2ff"; }, 1000);
+                document.getElementById('rango-text').textContent = rangos[rango];
             }
         }
 
-        // Recoger botín al acercarse
-        setInterval(() => {
-            if (!isPlaying) return;
-            let pos = playerEntity.getAttribute('position');
-            let loots = document.querySelectorAll('.loot');
-            loots.forEach(loot => {
-                let lz = loot.getAttribute('position').z;
-                let lx = loot.getAttribute('position').x;
-                if (Math.abs(lz - pos.z) < 2 && Math.abs(lx - pos.x) < 2) {
-                    let tipo = loot.getAttribute('data-type');
-                    loot.remove();
-                    if (tipo === 'vida') { alert("¡+50 Vida!"); }
-                    if (tipo === 'arma') { alert("¡Arma mejorada!"); }
-                    sumarXP(20);
-                }
+        function initJoystick() {
+            const zone = document.getElementById('joystick-zone');
+            const knob = document.getElementById('joystick-knob');
+            let startX, startY;
+            
+            zone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                startX = touch.clientX;
+                startY = touch.clientY;
             });
-        }, 500);
+            
+            zone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const deltaX = touch.clientX - startX;
+                const deltaY = touch.clientY - startY;
+                const distance = Math.min(Math.sqrt(deltaX**2 + deltaY**2), 35);
+                const angle = Math.atan2(deltaY, deltaX);
+                
+                const moveX = Math.cos(angle) * distance;
+                const moveY = Math.sin(angle) * distance;
+                
+                knob.style.transform = `translate(calc(-50% + ${moveX}px), calc(-50% + ${moveY}px))`;
+                
+                moveVector.x = moveX / 35;
+                moveVector.z = moveY / 35;
+            });
+            
+            zone.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                knob.style.transform = 'translate(-50%, -50%)';
+                moveVector = { x: 0, z: 0 };
+            });
+        }
 
+        window.addEventListener('resize', () => {
+            if (camera && renderer) {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        });
+
+        // Iniciar
+        init();
     </script>
 </body>
 </html>
