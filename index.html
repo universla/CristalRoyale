@@ -2,108 +2,256 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Cristal Royale 3D</title>
-    <!-- Cargamos el motor 3D A-Frame -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cristal Royale: FF x Fortnite</title>
+    <!-- Motor 3D A-Frame -->
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <!-- Joystick virtual para celular -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <style>
-        /* Botón de disparo flotante para celular */
-        #btn-disparar {
-            position: fixed;
-            bottom: 50px;
-            right: 50px;
-            width: 80px;
-            height: 80px;
-            background: red;
-            border-radius: 50%;
-            border: 3px solid white;
-            z-index: 999;
-            opacity: 0.7;
-        }
-        #info {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-family: Arial;
-            font-size: 20px;
-            z-index: 999;
-            background: rgba(0,0,0,0.5);
-            padding: 10px;
-        }
+        body { margin: 0; overflow: hidden; touch-action: none; font-family: 'Arial', sans-serif; }
+        
+        /* Interfaz Vertical */
+        #ui-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 999; }
+        
+        /* Panel de Rango y Vida */
+        #hud-top { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: auto; }
+        .hud-box { background: rgba(0,0,0,0.6); color: white; padding: 8px 15px; border-radius: 20px; border: 2px solid #00d2ff; font-weight: bold; font-size: 14px; }
+        #rango-text { color: #00d2ff; }
+        
+        /* Zona del Joystick (Mitad izquierda) */
+        #zone-joystick { position: absolute; bottom: 50px; left: 20px; width: 150px; height: 150px; pointer-events: auto; }
+        
+        /* Botones de Acción (Mitad derecha) */
+        #zone-actions { position: absolute; bottom: 40px; right: 20px; display: flex; flex-direction: column; gap: 15px; pointer-events: auto; }
+        .btn-action { width: 70px; height: 70px; border-radius: 50%; border: 3px solid white; font-weight: bold; color: white; font-size: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); active: scale(0.9); }
+        #btn-shoot { background: linear-gradient(135deg, #ff416c, #ff4b2b); }
+        #btn-build { background: linear-gradient(135deg, #f7971e, #ffd200); color: black; }
+        
+        /* Mensaje de inicio */
+        #start-msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 10px; text-align: center; pointer-events: auto; z-index: 1000; }
+        #start-btn { background: #00d2ff; border: none; padding: 10px 20px; color: black; font-weight: bold; border-radius: 5px; margin-top: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div id="info">Rango: CRISTAL | XP: 0</div>
-    <div id="btn-disparar" onclick="disparar()"></div>
+    <!-- Interfaz de Usuario (UI) -->
+    <div id="ui-layer">
+        <div id="hud-top">
+            <div class="hud-box">🏆 Rango: <span id="rango-text">CRISTAL</span></div>
+            <div class="hud-box">⭐ XP: <span id="xp-text">0</span></div>
+        </div>
+        <div id="zone-joystick"></div>
+        <div id="zone-actions">
+            <div id="btn-build" class="btn-action" ontouchstart="construir()" onclick="construir()">🧱<br>CONSTRUIR</div>
+            <div id="btn-shoot" class="btn-action" ontouchstart="disparar()" onclick="disparar()">🔫<br>DISPARAR</div>
+        </div>
+    </div>
+
+    <div id="start-msg">
+        <h2>🪂 CRISTAL ROYALE</h2>
+        <p>Usa el joystick izquierdo para moverte.<br>Arrastra el lado derecho para mirar.<br>¡Sobrevive y sube de rango!</p>
+        <button id="start-btn" onclick="iniciarJuego()">SALTAR DEL AVIÓN</button>
+    </div>
 
     <!-- Escena 3D -->
-    <a-scene>
-        <!-- Cielo y ambiente -->
+    <a-scene shadow="type: pcf" renderer="colorManagement: true; physicallyCorrectLights: true;" background="color: #87CEEB">
+        
+        <!-- Iluminación estilo Fortnite/Free Fire -->
+        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+        <a-light type="directional" position="10 20 10" intensity="1.2" cast-shadow="true" shadow-camera-top="20" shadow-camera-bottom="-20" shadow-camera-left="-20" shadow-camera-right="20"></a-light>
+
+        <!-- Cielo -->
         <a-sky color="#87CEEB"></a-sky>
-        <a-light type="ambient" color="#BBB"></a-light>
-        <a-light type="directional" position="1 2 1" intensity="0.6"></a-light>
 
-        <!-- Suelo (El Mapa) -->
-        <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#4CC3D9"></a-plane>
+        <!-- Suelo (Mapa) -->
+        <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100" color="#4a6fa5" shadow="receive: true"></a-plane>
+        <a-grid helper visible="false"></a-grid> <!-- Decorativo -->
 
-        <!-- Casas / Refugios (Botín) -->
-        <a-box position="-5 1.5 -10" width="4" height="3" depth="4" color="#8B4513"></a-box>
-        <a-box position="8 1.5 -8" width="4" height="3" depth="4" color="#8B4513"></a-box>
+        <!-- Entorno: Casas y Coberturas -->
+        <a-box position="-10 2 -15" width="6" height="4" depth="6" color="#8B4513" shadow="cast: true" class="cover"></a-box>
+        <a-box position="12 1.5 -10" width="4" height="3" depth="4" color="#A0522D" shadow="cast: true" class="cover"></a-box>
+        <a-cylinder position="0 1 -25" radius="2" height="2" color="#556B2F" shadow="cast: true"></a-cylinder>
 
-        <!-- El Avión (Simulado arriba) -->
-        <a-box id="avion" position="0 15 -20" width="6" height="1" depth="2" color="#555" animation="property: position; to: 0 15 20; dur: 10000; loop: true"></a-box>
+        <!-- Botín (Cajas brillantes) -->
+        <a-box position="5 0.5 -5" width="1" height="1" depth="1" color="#FFD700" shadow="cast: true" animation="property: rotation; to: 0 360 0; dur: 3000; loop: true" class="loot" data-type="arma"></a-box>
+        <a-box position="-8 0.5 -8" width="1" height="1" depth="1" color="#00FF00" shadow="cast: true" animation="property: rotation; to: 0 360 0; dur: 3000; loop: true" class="loot" data-type="vida"></a-box>
 
-        <!-- Jugador (Cámara en primera persona) -->
-        <a-entity id="jugador" position="0 1.6 0" look-controls>
-            <!-- Escudo Invisible (Paredes temporales) -->
-            <a-sphere id="escudo" radius="1.2" color="cyan" opacity="0.3" visible="true"></a-sphere>
-            <!-- Arma (Un simple bloque) -->
-            <a-box position="0.2 -0.3 -0.5" width="0.1" height="0.1" depth="0.4" color="#333"></a-box>
+        <!-- Enemigos (Bots simulados como cajas rojas) -->
+        <a-box id="enemy1" position="8 1 -15" width="1.5" height="2" depth="1.5" color="#ff3333" shadow="cast: true" class="enemy"></a-box>
+        <a-box id="enemy2" position="-12 1 -20" width="1.5" height="2" depth="1.5" color="#ff3333" shadow="cast: true" class="enemy"></a-box>
+
+        <!-- Jugador (Cámara en Primera Persona) -->
+        <a-entity id="player" position="0 10 0" look-controls="touchEnabled: true">
+            <!-- Escudo Invisible (Glow azul) -->
+            <a-sphere id="shield" radius="1.5" color="#00d2ff" opacity="0.3" shadow="cast: true" animation="property: scale; to: 1.1 1.1 1.1; dir: alternate; dur: 1000; loop: true"></a-sphere>
+            
+            <!-- Arma del jugador -->
+            <a-box position="0.3 -0.3 -0.5" width="0.15" height="0.15" depth="0.6" color="#333333"></a-box>
         </a-entity>
 
     </a-scene>
 
     <script>
-        // Lógica del juego
+        // --- VARIABLES DEL JUEGO ---
         let xp = 0;
-        let rango = "CRISTAL";
-        
-        // 1. Mecánica del Escudo Invisible (Dura 10 segundos al inicio)
-        setTimeout(() => {
-            document.getElementById('escudo').setAttribute('visible', 'false');
-            console.log("¡Escudo caído!");
-        }, 10000);
+        let rango = 0; // 0: Cristal, 1: Bronce, 2: Plata, 3: Oro, 4: Diamante, 5: Supremo
+        const rangosNombres = ["CRISTAL", "BRONCE", "PLATA", "ORO", "DIAMANTE", "SUPREMO"];
+        let playerEntity = document.getElementById('player');
+        let shield = document.getElementById('shield');
+        let scene = document.querySelector('a-scene');
+        let moveVector = { x: 0, z: 0 };
+        let isPlaying = false;
 
-        // 2. Mecánica de Disparo
+        // --- 1. INICIO Y CAÍDA DEL AVIÓN ---
+        function iniciarJuego() {
+            document.getElementById('start-msg').style.display = 'none';
+            isPlaying = true;
+            
+            // Animación de caída (la cámara baja de Y=10 a Y=1.6 en 3 segundos)
+            playerEntity.setAttribute('animation', 'property: position; to: 0 1.6 0; dur: 3000; easing: easeOutQuad');
+            
+            // El escudo dura 10 segundos y luego desaparece
+            setTimeout(() => {
+                shield.setAttribute('visible', 'false');
+                console.log("¡Escudo caído!");
+            }, 10000);
+
+            // Iniciar Joystick
+            iniciarJoystick();
+        }
+
+        // --- 2. JOYSTICK VIRTUAL (Movimiento) ---
+        function iniciarJoystick() {
+            const joystickManager = nipplejs.create({
+                zone: document.getElementById('zone-joystick'),
+                mode: 'static',
+                position: { left: '50%', top: '50%' },
+                color: 'white'
+            });
+
+            joystickManager.on('move', function (evt, data) {
+                if (data && data.vector) {
+                    moveVector.x = data.vector.x;
+                    moveVector.z = -data.vector.y; // Invertir Y para que arriba sea adelante
+                }
+            });
+
+            joystickManager.on('end', function () {
+                moveVector.x = 0;
+                moveVector.z = 0;
+            });
+        }
+
+        // Loop de movimiento (60 FPS)
+        setInterval(() => {
+            if (!isPlaying) return;
+            if (moveVector.x !== 0 || moveVector.z !== 0) {
+                let currentPos = playerEntity.getAttribute('position');
+                // Mover en la dirección que mira la cámara (simplificado para web)
+                let speed = 0.15;
+                playerEntity.setAttribute('position', {
+                    x: currentPos.x + (moveVector.x * speed),
+                    y: currentPos.y,
+                    z: currentPos.z + (moveVector.z * speed)
+                });
+            }
+        }, 16);
+
+        // --- 3. SISTEMA DE DISPARO ---
         function disparar() {
-            const escena = document.querySelector('a-scene');
-            const jugador = document.getElementById('jugador');
+            if (!isPlaying) return;
             
             // Crear bala
-            const bala = document.createElement('a-sphere');
-            bala.setAttribute('color', 'yellow');
+            let bala = document.createElement('a-sphere');
             bala.setAttribute('radius', '0.1');
+            bala.setAttribute('color', '#ffff00');
+            bala.setAttribute('shadow', 'cast: true');
             
-            // Posición inicial de la bala (frente al jugador)
-            const posicion = jugador.getAttribute('position');
-            // Nota: En un juego real, aquí calcularíamos la rotación de la cámara para la dirección
-            bala.setAttribute('position', {x: posicion.x, y: posicion.y, z: posicion.z - 1});
+            let pos = playerEntity.getAttribute('position');
+            bala.setAttribute('position', { x: pos.x, y: pos.y, z: pos.z - 0.5 });
             
-            // Animación de la bala moviéndose hacia adelante
-            bala.setAttribute('animation', 'property: position; to: ' + posicion.x + ' ' + posicion.y + ' ' + (posicion.z - 20) + '; dur: 500');
-            
-            escena.appendChild(bala);
+            // Animación de disparo hacia adelante
+            bala.setAttribute('animation', `property: position; to: ${pos.x} ${pos.y} ${pos.z - 30}; dur: 300`);
+            scene.appendChild(bala);
 
-            // Eliminar la bala después de 0.5 segundos para no saturar el celular
+            // Detección de impacto (simplificada: si toca un enemigo, lo destruye)
             setTimeout(() => {
                 bala.remove();
-                // Simular que le dimos a un enemigo
-                xp += 50;
-                document.getElementById('info').innerText = "Rango: " + rango + " | XP: " + xp;
-            }, 500);
+                verificarImpacto(pos.z - 15); // Zona de impacto aproximada
+            }, 300);
         }
+
+        function verificarImpacto(zonaZ) {
+            let enemigos = document.querySelectorAll('.enemy');
+            enemigos.forEach(enemigo => {
+                let ez = enemigo.getAttribute('position').z;
+                if (Math.abs(ez - zonaZ) < 5) { // Si está cerca
+                    enemigo.parentNode.removeChild(enemigo); // Eliminar enemigo
+                    sumarXP(100);
+                }
+            });
+        }
+
+        // --- 4. SISTEMA DE CONSTRUCCIÓN (Fortnite) ---
+        function construir() {
+            if (!isPlaying) return;
+            let pos = playerEntity.getAttribute('position');
+            
+            let pared = document.createElement('a-box');
+            pared.setAttribute('position', { x: pos.x, y: pos.y, z: pos.z - 2 });
+            pared.setAttribute('width', '3');
+            pared.setAttribute('height', '3');
+            pared.setAttribute('depth', '0.2');
+            pared.setAttribute('color', '#D2691E'); // Color madera
+            pared.setAttribute('shadow', 'cast: true');
+            
+            scene.appendChild(pared);
+            
+            // La pared desaparece después de 15 segundos para no saturar el celular
+            setTimeout(() => { pared.remove(); }, 15000);
+        }
+
+        // --- 5. SISTEMA DE RANGOS Y BOTÍN ---
+        function sumarXP(cantidad) {
+            xp += cantidad;
+            document.getElementById('xp-text').innerText = xp;
+            
+            // Lógica de subida de rango
+            let nuevoRango = 0;
+            if (xp >= 100) nuevoRango = 1;
+            if (xp >= 250) nuevoRango = 2;
+            if (xp >= 500) nuevoRango = 3;
+            if (xp >= 1000) nuevoRango = 4;
+            if (xp >= 2500) nuevoRango = 5;
+
+            if (nuevoRango > rango) {
+                rango = nuevoRango;
+                document.getElementById('rango-text').innerText = rangosNombres[rango];
+                // Efecto visual de subida de rango
+                document.getElementById('rango-text').style.color = "#FFD700";
+                setTimeout(() => { document.getElementById('rango-text').style.color = "#00d2ff"; }, 1000);
+            }
+        }
+
+        // Recoger botín al acercarse
+        setInterval(() => {
+            if (!isPlaying) return;
+            let pos = playerEntity.getAttribute('position');
+            let loots = document.querySelectorAll('.loot');
+            loots.forEach(loot => {
+                let lz = loot.getAttribute('position').z;
+                let lx = loot.getAttribute('position').x;
+                if (Math.abs(lz - pos.z) < 2 && Math.abs(lx - pos.x) < 2) {
+                    let tipo = loot.getAttribute('data-type');
+                    loot.remove();
+                    if (tipo === 'vida') { alert("¡+50 Vida!"); }
+                    if (tipo === 'arma') { alert("¡Arma mejorada!"); }
+                    sumarXP(20);
+                }
+            });
+        }, 500);
+
     </script>
 </body>
 </html>
